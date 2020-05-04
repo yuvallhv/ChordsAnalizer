@@ -13,7 +13,7 @@ import pdb
 
 
 # consts
-CHROME_DRIVER_PATH = "chromedriver"
+CHROME_DRIVER_PATH = "../chromedriver"
 
 
 def get_chrome_driver(path):
