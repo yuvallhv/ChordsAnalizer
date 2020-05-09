@@ -1,0 +1,11 @@
+
+info from the song:
+- ratings
+- category
+
+info from the artist:
+- origin
+- activity years
+
+need to think how:
+- how to process the opening, transitions chords
