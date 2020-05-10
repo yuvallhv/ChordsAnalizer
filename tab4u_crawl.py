@@ -20,6 +20,20 @@ def get_chrome_driver(path):
     return webdriver.Chrome(options=chrome_options, executable_path=path)
 
 
+def find_element_by_xpath(driver, xpath):
+    """ find the required element (single) by xpath and wait for it to load """
+    return WebDriverWait(driver, consts.WEB_DRIVER_WAIT_TIME).until(
+        EC.presence_of_element_located((By.XPATH, xpath)))
+    # return driver.find_element_by_xpath(xpath)
+
+
+def find_elements_by_xpath(driver, xpath):
+    """ find the required elements (multiple) by xpath and wait for them to load """
+    WebDriverWait(driver, consts.WEB_DRIVER_WAIT_TIME).until(
+        EC.presence_of_element_located((By.XPATH, xpath)))
+    return driver.find_elements_by_xpath(xpath)
+
+
 def try_click(url, element, cnt_try=consts.CNT_TRY):
     """ try click cnt_try times to try avoid losing data """
 
@@ -38,13 +52,13 @@ def get_data_by_artist(driver, url, artist_name):
 
     # get data
     data_by_artist_dict = {
-        consts.SONGS_DATA: get_songs_data(driver, url),
+        consts.SONGS_DATA: navigate_songs(driver, url),
         consts.ARTIST_DATA: get_artist_data(driver, url)
     }
 
     # dump to file by artist name
     try:
-        file_name = f"{artist_name}.json"
+        file_name = f"json_files/{artist_name}.json"
         with open(file_name, 'w', encoding='utf-8') as f:
             json.dump(data_by_artist_dict, f, ensure_ascii=False, indent=4)
 
@@ -59,8 +73,7 @@ def get_artist_data(driver, url):
     artist_bio_dict = {}
 
     try:
-        WebDriverWait(driver, consts.WEB_DRIVER_WAIT_TIME).until(EC.presence_of_element_located((By.XPATH, artist_bios_xpath)))
-        artist_bios_elements = driver.find_elements_by_xpath(artist_bios_xpath)
+        artist_bios_elements = find_elements_by_xpath(driver, artist_bios_xpath)
 
         for artist_bio_e in artist_bios_elements:
 
@@ -78,7 +91,7 @@ def get_artist_data(driver, url):
         return artist_bio_dict
 
 
-def get_songs_data(driver, url):
+def navigate_songs(driver, url):
     """ returns a dictionary of songs and their data dictionaries, from all the pages for this artist """
 
     next_page_nav_xpath = "//div[@class='pagination row']"
@@ -86,26 +99,25 @@ def get_songs_data(driver, url):
 
     # check if there are multiple pages
     try:
-        driver.find_element_by_xpath(next_page_nav_xpath)
-        return get_songs_data_multiple_page(driver, url, songs_data_dict)
+        find_element_by_xpath(driver, next_page_nav_xpath)
+        return navigate_songs_multiple_page(driver, url, songs_data_dict)
 
     except NoSuchElementException as e:
-        return get_songs_data_single_page(driver, url, songs_data_dict)
+        return navigate_songs_single_page(driver, url, songs_data_dict)
 
 
-def get_songs_data_multiple_page(driver, url, songs_data_dict):
+def navigate_songs_multiple_page(driver, url, songs_data_dict):
     """ returns a dictionary of songs and their data dictionaries, from all the pages for this artist """
 
     next_page_str = "עמוד הבא"
     next_page_a_xpath = "//a[@class='nextPre'][1]"
 
     # get current page songs data
-    get_songs_data_single_page(driver, url, songs_data_dict)
+    navigate_songs_single_page(driver, url, songs_data_dict)
 
     try:
         # check for more pages for this artist
-        next_page_a_element = WebDriverWait(driver, consts.WEB_DRIVER_WAIT_TIME).until(
-            EC.presence_of_element_located((By.XPATH, next_page_a_xpath)))
+        next_page_a_element = find_element_by_xpath(driver, next_page_a_xpath)
         next_page_a_text = next_page_a_element.text
 
         if next_page_str in next_page_a_text:
@@ -113,7 +125,7 @@ def get_songs_data_multiple_page(driver, url, songs_data_dict):
                 logger.log("clicking on the next page for this artist")
                 try_click(url, next_page_a_element)
                 url = driver.current_url
-                get_songs_data_multiple_page(driver, url, songs_data_dict)
+                navigate_songs_multiple_page(driver, url, songs_data_dict)
 
             except Exception as e:
                 logger.warning(f"Failed to go to the next page, exception: {e}. Reloading")
@@ -126,16 +138,14 @@ def get_songs_data_multiple_page(driver, url, songs_data_dict):
     return songs_data_dict
 
 
-def get_songs_data_single_page(driver, url, songs_data_dict):
+def navigate_songs_single_page(driver, url, songs_data_dict):
     """ returns a dictionary of songs and their data dictionaries  """
 
     songs_xpath = "//td[@class='song']"
     songs_a_xpath = "//td[@class='song']/a"
 
     try:
-        WebDriverWait(driver, consts.WEB_DRIVER_WAIT_TIME).until(
-            EC.presence_of_element_located((By.XPATH, songs_xpath)))
-        songs_elements = driver.find_elements_by_xpath(songs_xpath)
+        songs_elements = find_elements_by_xpath(driver, songs_xpath)
 
         song_href = ""  # needed for warning msg in case of failure
         song_name = ""  # needed for warning msg in case of failure
@@ -144,9 +154,7 @@ def get_songs_data_single_page(driver, url, songs_data_dict):
 
             try:
                 xpath_by_idx = "({})[{}]".format(songs_a_xpath, str(idx + 1))  # note: xpath arr starts from 1
-
-                song_a_element = WebDriverWait(driver, consts.WEB_DRIVER_WAIT_TIME).until(
-                    EC.element_to_be_clickable((By.XPATH, xpath_by_idx)))
+                song_a_element = find_element_by_xpath(driver, xpath_by_idx)
 
                 # get song's name
                 song_name = song_a_element.text
@@ -209,7 +217,6 @@ if __name__ == "__main__":
     driver = get_chrome_driver(consts.CHROME_DRIVER_PATH)
 
     try:
-        # url = "https://www.tab4u.com/tabs/artists/1723_%D7%A6%D7%9C%D7%99%D7%9C_%D7%93%D7%99%D7%99%D7%9F.html"
 
         url = "https://www.tab4u.com/tabs/artists/112_%D7%94%D7%A8%D7%90%D7%9C_%D7%A1%D7%A7%D7%A2%D7%AA.html"
 
