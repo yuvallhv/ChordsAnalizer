@@ -7,12 +7,15 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import json
+import urllib
 
 import consts
 import logger
 import pdb
 
 
+###############################################################
+# TODO: move to driver helpers
 def get_chrome_driver(path):
     chrome_options = Options()
     # chrome_options.add_argument("headless")
@@ -24,7 +27,6 @@ def find_element_by_xpath(driver, xpath):
     """ find the required element (single) by xpath and wait for it to load """
     return WebDriverWait(driver, consts.WEB_DRIVER_WAIT_TIME).until(
         EC.presence_of_element_located((By.XPATH, xpath)))
-    # return driver.find_element_by_xpath(xpath)
 
 
 def find_elements_by_xpath(driver, xpath):
@@ -47,16 +49,166 @@ def try_click(url, element, cnt_try=consts.CNT_TRY):
             raise e
 
 
-def get_data_by_artist(driver, url, artist_name):
+def go_back(driver, url):
+    # (driver.back() might cause weird behavior)
+    try:
+        # driver.execute_script("window.history.go(-1)")
+        # driver.back()
+        driver.get(url)
+
+    except Exception as e:
+        logger.warning(f"Failed go back (-1) in history, exception: {e}. Reloading")
+        driver.get(url)
+
+###############################################################
+###############################################################
+
+
+def navigate_pages(driver, url, data_dict, single_page_func):
+    """ returns a dictionary of data, from all the pages """
+
+    next_page_nav_xpath = "//div[@class='pagination row']"
+
+    # check if there are multiple pages
+    try:
+        find_element_by_xpath(driver, next_page_nav_xpath)
+        return navigate_multiple_page(driver, url, data_dict, single_page_func)
+
+    except Exception as e:
+        return single_page_func(driver, url) if data_dict is None else single_page_func(driver, url, data_dict)
+
+
+def navigate_multiple_page(driver, url, data_dict, single_page_func):
+    """ returns a dictionary of data, from all the pages """
+
+    next_page_str = "עמוד הבא"
+    next_page_a_xpath = "//a[@class='nextPre'][1]"
+
+    # get current page data
+    single_page_func(driver, url) if data_dict is None else single_page_func(driver, url, data_dict)
+
+    try:
+        # check for more pages for this artist
+        next_page_a_element = find_element_by_xpath(driver, next_page_a_xpath)
+        next_page_a_text = next_page_a_element.text
+
+        if next_page_str in next_page_a_text:
+            try:
+                url = next_page_a_element.get_attribute('href')  # no point to go back to the prev url
+                try_click(url, next_page_a_element)
+                logger.notice(f"moved to the next page for this artist, current url is {urllib.parse.unquote(url)}")
+
+                navigate_multiple_page(driver, url, data_dict, single_page_func)
+
+            except Exception as e:
+                logger.warning(f"Failed to go to the next page, exception: {e}. Reloading")
+                driver.get(url)
+
+    except Exception as e:
+        logger.warning(f"Failed to find next page element by xpath: {next_page_a_xpath}, exception: {e}. Reloading")
+        driver.get(url)
+
+    return data_dict
+
+
+def navigate_artists(driver, url):
+    navigate_pages(driver, url, None, navigate_artists_single_page)
+
+
+def navigate_artists_single_page(driver, url):
+    """ navigate through artists pages and dump a json file for each artist """
+
+    artists_a_xpath = "//a[@class='searchLink']"
+    artist_name = ""    # this is needed in case of warning
+
+    # this shouldn't fail all page - might give empty data
+    artists_albums_cnt_dict = get_albums_cnt_data(driver)
+
+    # this shouldn't fail all page - might give empty data
+    artists_songs_cnt_dict = get_songs_cnt_data(driver)
+
+    try:
+        artists_a_element = find_elements_by_xpath(driver, artists_a_xpath)
+
+        for idx, _ in enumerate(artists_a_element):
+
+            xpath_by_idx = "({})[{}]".format(artists_a_xpath, str(idx + 1))  # note: xpath arr starts from 1
+            artist_a_element = find_element_by_xpath(driver, xpath_by_idx)
+
+            artist_name = artist_a_element.text
+
+            artist_albums_cnt = None if artist_name not in artists_albums_cnt_dict else artists_albums_cnt_dict[artist_name]
+            artist_songs_cnt = None if artist_name not in artists_songs_cnt_dict else artists_songs_cnt_dict[artist_name]
+
+            # go to the artist's page and create a json file for him
+            try:
+                artist_url = artist_a_element.get_attribute('href')
+                try_click(url, artist_a_element)
+                logger.notice(f"clicked successfully, current url is {urllib.parse.unquote(artist_url)}")
+
+                get_data_as_json_file_by_artist(driver, artist_url, artist_name, artist_albums_cnt, artist_songs_cnt)
+
+                # go back to the previous page
+                go_back(driver, url)
+
+            except Exception as e:
+                logger.warning(f"Failed to click on the artist {artist_name} page, exception: {e}. Reloading")
+                driver.get(url)
+
+    except Exception as e:
+        logger.warning(f"Failed to get artists links, exception: {e}.")
+
+
+def get_albums_cnt_data(driver):
+    """  """
+    # TODO: get data on artist
+
+    # try:
+    #     artists_table_trs_xpath = "//table[@class=tbl_type5]/tbody/tr"
+    #     artists_table_trs = None
+    #
+    #
+    #     artists_table_trs = find_elements_by_xpath(driver, artists_table_trs_xpath)
+    #
+    # except Exception as e:
+    #     logger.warning(f"Failed to get artists table, exception: {e}")
+
+    return ""
+
+
+def get_songs_cnt_data(driver):
+    """  """
+    # TODO: get data on artist
+
+    # try:
+    #     artists_table_trs_xpath = "//table[@class=tbl_type5]/tbody/tr"
+    #     artists_table_trs = None
+    #
+    #
+    #     artists_table_trs = find_elements_by_xpath(driver, artists_table_trs_xpath)
+    #
+    # except Exception as e:
+    #     logger.warning(f"Failed to get artists table, exception: {e}")
+
+    return ""
+
+
+def get_data_as_json_file_by_artist(driver, curr_url, artist_name, artist_albums_cnt, artist_songs_cnt):
     """ returns a data dictionary of the artist's biography information and songs data """
 
     # get data
     data_by_artist_dict = {
-        consts.SONGS_DATA: navigate_songs(driver, url),
-        consts.ARTIST_DATA: get_artist_data(driver, url)
+        # consts.SONGS_DATA: navigate_songs(driver, curr_url),
+        consts.SONGS_DATA: navigate_pages(driver, curr_url, {}, navigate_songs_single_page),
+        consts.ARTIST_DATA: {
+            consts.ARTIST_NAME: artist_name,
+            consts.ARTIST_BIO: get_artist_data(driver, curr_url),
+            consts.ALBUMS_CNT: artist_albums_cnt,
+            consts.SONGS_CNT: artist_songs_cnt
+        }
     }
 
-    # dump to file by artist name
+    # dump dictionary to json file by artist name
     try:
         file_name = f"json_files/{artist_name}.json"
         with open(file_name, 'w', encoding='utf-8') as f:
@@ -91,53 +243,6 @@ def get_artist_data(driver, url):
         return artist_bio_dict
 
 
-def navigate_songs(driver, url):
-    """ returns a dictionary of songs and their data dictionaries, from all the pages for this artist """
-
-    next_page_nav_xpath = "//div[@class='pagination row']"
-    songs_data_dict = {}
-
-    # check if there are multiple pages
-    try:
-        find_element_by_xpath(driver, next_page_nav_xpath)
-        return navigate_songs_multiple_page(driver, url, songs_data_dict)
-
-    except NoSuchElementException as e:
-        return navigate_songs_single_page(driver, url, songs_data_dict)
-
-
-def navigate_songs_multiple_page(driver, url, songs_data_dict):
-    """ returns a dictionary of songs and their data dictionaries, from all the pages for this artist """
-
-    next_page_str = "עמוד הבא"
-    next_page_a_xpath = "//a[@class='nextPre'][1]"
-
-    # get current page songs data
-    navigate_songs_single_page(driver, url, songs_data_dict)
-
-    try:
-        # check for more pages for this artist
-        next_page_a_element = find_element_by_xpath(driver, next_page_a_xpath)
-        next_page_a_text = next_page_a_element.text
-
-        if next_page_str in next_page_a_text:
-            try:
-                logger.log("clicking on the next page for this artist")
-                try_click(url, next_page_a_element)
-                url = driver.current_url
-                navigate_songs_multiple_page(driver, url, songs_data_dict)
-
-            except Exception as e:
-                logger.warning(f"Failed to go to the next page, exception: {e}. Reloading")
-                driver.get(url)
-
-    except Exception as e:
-        logger.warning(f"Failed to find next page element by xpath: {next_page_a_xpath}, exception: {e}. Reloading")
-        driver.get(url)
-
-    return songs_data_dict
-
-
 def navigate_songs_single_page(driver, url, songs_data_dict):
     """ returns a dictionary of songs and their data dictionaries  """
 
@@ -147,7 +252,7 @@ def navigate_songs_single_page(driver, url, songs_data_dict):
     try:
         songs_elements = find_elements_by_xpath(driver, songs_xpath)
 
-        song_href = ""  # needed for warning msg in case of failure
+        song_url = ""  # needed for warning msg in case of failure
         song_name = ""  # needed for warning msg in case of failure
 
         for idx, _ in enumerate(songs_elements):
@@ -160,30 +265,23 @@ def navigate_songs_single_page(driver, url, songs_data_dict):
                 song_name = song_a_element.text
 
                 # get the link to the song's page and move to the page
-                song_href = song_a_element.get_attribute('href')
-
+                song_url = song_a_element.get_attribute('href')
                 try_click(url, song_a_element)
 
                 # get song's chords and words data
-                chords_dict = get_song_chords(driver)
+                chords_dict = get_song_chords(driver, song_url)
                 songs_data_dict[song_name] = chords_dict
 
-                logger.log(f"parsed song {(idx+1)} for this page; name: {song_name}, href: {song_href}")
+                logger.log(f"parsed song {(idx+1)} for this page; name: {song_name}, href: {urllib.parse.unquote(song_url)}")
 
             except Exception as e:
-                logger.warning(f"Failed to parse a song {idx} of current page, song href: {song_href}, song text: "
-                               f"{song_name}, exception: {e}. Reloading")
+                logger.warning(f"Failed to parse a song {idx} of current page, song href: "
+                               f"{urllib.parse.unquote(song_url)}, song text: "
+                               f"{song_name}, current url: {urllib.parse.unquote(url)}, exception: {e}. Reloading")
                 driver.get(url)
 
-            try:
-                # go back to the previous page, (driver.back() might cause weird behavior)
-                # driver.execute_script("window.history.go(-1)")
-                # driver.back()
-                driver.get(url)
-
-            except Exception as e:
-                logger.warning(f"Failed go back (-1) in history, exception: {e}. Reloading")
-                driver.get(url)
+            # go back to the previous page
+            go_back(driver, url)
 
         return songs_data_dict
 
@@ -197,7 +295,7 @@ def navigate_songs_single_page(driver, url, songs_data_dict):
 #####################
 
 
-def get_song_chords(driver):
+def get_song_chords(driver, url):
     """ returns key, value. key=song name, value=chords dictionary """
     # TODO: change
     return "** tmp **"
@@ -218,10 +316,14 @@ if __name__ == "__main__":
 
     try:
 
-        url = "https://www.tab4u.com/tabs/artists/112_%D7%94%D7%A8%D7%90%D7%9C_%D7%A1%D7%A7%D7%A2%D7%AA.html"
+        # url = "https://www.tab4u.com/tabs/artists/112_%D7%94%D7%A8%D7%90%D7%9C_%D7%A1%D7%A7%D7%A2%D7%AA.html"
+        url = "https://www.tab4u.com/results?tab=artists&q=%D7%A1"
+
+        url = "https://www.tab4u.com/results?tab=artists&q=%D7%9B"
+
 
         driver.get(url)
-        print(get_data_by_artist(driver, url, "הראל סקעת"))
+        print(navigate_artists(driver, url))
 
     finally:
         driver.close()

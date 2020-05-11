@@ -16,3 +16,7 @@ def log(msg):
 
 def warning(msg):
     print(f"{bcolors.WARNING}WARNING: {msg}{bcolors.ENDC}")
+
+
+def notice(msg):
+    print(f"{bcolors.OKGREEN}notice: {msg}{bcolors.ENDC}")

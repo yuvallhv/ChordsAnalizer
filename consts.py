@@ -1,9 +1,14 @@
 
 
 CHROME_DRIVER_PATH = "../chromedriver"
-WEB_DRIVER_WAIT_TIME = 20
-CNT_TRY = 4
+WEB_DRIVER_WAIT_TIME = 10
+CNT_TRY = 3
 
-# dictionarty keys
-SONGS_DATA = "songs_data"
-ARTIST_DATA = "artist_data"
+# dictionary keys
+SONGS_DATA = "Songs_data"
+ARTIST_DATA = "Artist_data"
+
+ARTIST_NAME = "Artist_name"
+ARTIST_BIO = "Artist_bio"
+ALBUMS_CNT = "Albums_cnt"
+SONGS_CNT = "Songs_cnt"
