@@ -174,6 +174,8 @@ def get_data_as_json_file_by_artist(curr_url, artist_name, artist_albums_cnt, ar
 def get_artist_data(url):
     """ returns a dictionary of the artist's biography information """
 
+    # TODO: bug in get bio - look for example in כוורת
+
     artist_bios_xpath = "//ul[@class='artist_block_bio']/li"
     artist_bio_dict = {}
 
@@ -270,8 +272,58 @@ def get_song_data_init_page(url, artist_name, song_name):
     return song_data_dict
 
 
+def get_song_lyrics_chords(url, song_name):
+    """ Returns the song's lyrics and chords.
+    lyrics- organized in a list of lists. Each cell represents a paragraph. Each cell in the paragraph represents a line
+    chords- TODO: complete this """
+
+    song_paragraphs_xpath = "//div[@id='songContentTPL']/table"
+    chords_paragraphs = []
+    song_paragraphs = []
+
+    try:
+        song_paragraphs_elements = my_driver.find_elements_by_xpath(song_paragraphs_xpath)
+
+        for paragraph_idx, song_paragraph_element in enumerate(song_paragraphs_elements):
+
+            chords_lines = []
+            song_lines = []
+
+            song_lines_xpath = f"{my_driver.xpath_by_idx(song_paragraphs_xpath, paragraph_idx)}/tbody/tr/td"
+            song_lines_elements = my_driver.find_elements_by_xpath(song_lines_xpath)
+
+
+            for line_idx, song_line_element in enumerate(song_lines_elements):
+
+                line_text = song_line_element.text
+                line_type = song_line_element.get_attribute("class")
+
+                if line_type == consts.CHORDS_CLASS:
+                    chords_lines.append(line_text)
+
+                elif line_type == consts.SONG_CLASS:
+                    song_lines.append(line_text)
+
+            chords_paragraphs.append(chords_lines)
+            song_paragraphs.append(song_lines)
+
+    # TODO: deal with: פזמון, פתיח...
+
+    # TODO: dael with tabs
+
+
+
+    except Exception as e:
+        logger.warning(f"Failed to find song's words and chords for song {song_name}, exception: {e}. Reloading")
+        my_driver.driver.get(url)
+
+
+
+
+
+
 def get_song_collaborators(url, artist_name, song_name):
-    """ returns a string with the names of the other artists that worked on this song """
+    """ Returns a string with the names of the other artists that worked on this song """
     # TODO: we can make this at the end of the crawling to be a list -
     # TODO: by looking for words that starts with " ו" and checking to see if there is an artist with this name....
 
@@ -284,14 +336,14 @@ def get_song_collaborators(url, artist_name, song_name):
         collaborators = all_artists.replace(and_artist, "") if and_artist in all_artists else all_artists.replace(artist_name, "")
 
     except Exception as e:
-        logger.warning(f"Failed to find other artists for artist {song_name}, exception: {e}. Reloading")
+        logger.warning(f"Failed to find collaborators for song {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
     return collaborators
 
 
 def get_song_categories(url, song_name):
-    """ returns a list of the song's categories """
+    """ Returns a list of the song's categories """
 
     categories_xpath = "//a[@class='catLinkInSong']"
     categories_lst = []
@@ -301,7 +353,7 @@ def get_song_categories(url, song_name):
         categories_lst = [category_element.text for category_element in categories_elements]
 
     except Exception as e:
-        logger.warning(f"Failed to find categories for artist {song_name}, exception: {e}. Reloading")
+        logger.warning(f"Failed to find categories for song {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
     return categories_lst
@@ -334,7 +386,7 @@ def get_song_author_composer(url, song_name):
             author_composer_dict.update({author_composer_header: author_composer_info})
 
     except Exception as e:
-        logger.warning(f"Failed to find composer and author for artist {song_name}, exception: {e}. Reloading")
+        logger.warning(f"Failed to find composer and author for song {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
     return author_composer_dict
@@ -351,7 +403,7 @@ def get_song_ranking(url, song_name):
         ranking = float(ranking_element.text)
 
     except Exception as e:
-        logger.warning(f"Failed to find ranking for artist {song_name}, exception: {e}. Reloading")
+        logger.warning(f"Failed to find ranking for song {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
     return ranking
@@ -369,16 +421,17 @@ if __name__ == "__main__":
 
     try:
 
-        url = "https://www.tab4u.com/results?tab=artists&q=%D7%9B"
-
-        my_driver.driver.get(url)
-        print(navigate_artists(url))
-
-        # url = "https://www.tab4u.com/tabs/songs/2329_%D7%99%D7%A9_%D7%9C%D7%99_%D7%97%D7%95%D7%9C%D7%A9%D7%94_%D7%9C%D7%A8%D7%A7%D7%93%D7%A0%D7%99%D7%9D.html"
-        #
+        # url = "https://www.tab4u.com/results?tab=artists&q=%D7%9B"
         #
         # my_driver.driver.get(url)
-        # print(get_song_data_init_page(url, "כברה קסאי"))
+        # print(navigate_artists(url))
+
+        url = "https://www.tab4u.com/tabs/songs/2329_%D7%99%D7%A9_%D7%9C%D7%99_%D7%97%D7%95%D7%9C%D7%A9%D7%94_%D7%9C%D7%A8%D7%A7%D7%93%D7%A0%D7%99%D7%9D.html"
+
+
+        my_driver.driver.get(url)
+
+        print(get_song_lyrics_chords(url, "כברה קסאי"))
 
     finally:
         my_driver.driver.close()

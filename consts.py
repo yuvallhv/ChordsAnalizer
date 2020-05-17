@@ -4,6 +4,10 @@ CHROME_DRIVER_PATH = "../chromedriver"
 WEB_DRIVER_WAIT_TIME = 10
 CNT_TRY = 3
 
+# classes names in tab4u website
+CHORDS_CLASS = "chords"
+SONG_CLASS = "song"
+
 # dictionary keys
 SONGS_DATA = "Songs data"
 ARTIST_DATA = "Artist data"
