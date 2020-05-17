@@ -8,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import json
 import urllib
 
+import song_page_crawl
 import consts
 import logger
 import pdb
@@ -303,6 +304,120 @@ def navigate_songs_single_page(driver, url, songs_data_dict):
 
 
 
+################################################################################################
+################################################################################################
+# TODO: move to song_page_crawl
+
+
+def get_song_data_init_page(driver, url, artist_name):
+    """ get data dict about the song from its initial page """
+
+    song_data_dict = {
+        consts.RANKING: get_song_ranking(driver, url, artist_name),
+        consts.AUTHOR_COMPOSER: get_song_author_composer(driver, url, artist_name),
+        consts.CATEGORIES: get_song_categories(driver, url, artist_name),
+        consts.COLLABORATORS: get_song_collaborators(driver, url, artist_name)
+
+        # TODO: get chords
+        # TODO: get words
+        # consts.CHORDS: "",
+        # consts.WORDS: "",
+    }
+
+    logger.log(f"Found song data: {song_data_dict}")
+    return song_data_dict
+
+
+def get_song_collaborators(driver, url, artist_name):
+    """ returns a string with the names of the other artists that worked on this song """
+    # TODO: we can make this at the end of the crawling to be a list -
+    # TODO: by looking for words that starts with " ו" and checking to see if there is an artist with this name....
+
+    all_artists_xpath = "//div[@class='data_block_title_text']/a"
+    and_artist = " ו" + artist_name
+    collaborators = None
+
+    try:
+        all_artists = find_element_by_xpath(driver, all_artists_xpath).text
+        collaborators = all_artists.replace(and_artist, "") if and_artist in all_artists else all_artists.replace(artist_name, "")
+
+    except Exception as e:
+        logger.warning(f"Failed to find other artists for artist {artist_name}, exception: {e}. Reloading")
+        driver.get(url)
+
+    return collaborators
+
+
+def get_song_categories(driver, url, artist_name):
+    """ returns a list of the song's categories """
+
+    categories_xpath = "//a[@class='catLinkInSong']"
+    categories_lst = []
+
+    try:
+        categories_elements = find_elements_by_xpath(driver, categories_xpath)
+        categories_lst = [category_element.text for category_element in categories_elements]
+
+    except Exception as e:
+        logger.warning(f"Failed to find categories for artist {artist_name}, exception: {e}. Reloading")
+        driver.get(url)
+
+    return categories_lst
+
+
+def get_song_author_composer(driver, url, artist_name):
+    """ returns a dictionary of the author and composer of the current song """
+    # TODO: change the data struct (parse better)
+
+    author_composer_dict = None
+    author_composer_headers_spans_xpath = "//div[@id='aAndcArea']/span[@id='koteretInSong']"
+    author_composer_info_spans_xpath = "//div[@id='aAndcArea']/span[@id='textInSong']"
+
+    try:
+        author_composer_dict = {}
+        author_composer_headers_spans = find_elements_by_xpath(driver, author_composer_headers_spans_xpath)
+        author_composer_info_spans = find_elements_by_xpath(driver, author_composer_info_spans_xpath)
+
+        if not isinstance(author_composer_headers_spans, list) or \
+                not isinstance(author_composer_info_spans, list) or \
+                not len(author_composer_headers_spans) == len(author_composer_info_spans):
+            raise Exception()
+
+        for idx, (author_composer_header_span, author_composer_info_span) in \
+                enumerate(zip(author_composer_headers_spans, author_composer_info_spans)):
+            author_composer_header = author_composer_header_span.text.replace(":", "")
+            author_composer_info = author_composer_info_span.text
+
+            # TODO: parse this better
+            author_composer_dict.update({author_composer_header: author_composer_info})
+
+    except Exception as e:
+        logger.warning(f"Failed to find composer and author for artist {artist_name}, exception: {e}. Reloading")
+        driver.get(url)
+
+    return author_composer_dict
+
+
+def get_song_ranking(driver, url, artist_name):
+    """ returns the song's ranking as a float """
+
+    ranking = None
+
+    try:
+        ranking_xpath = "//span[@class='rankPre']"
+        ranking_element = find_element_by_xpath(driver, ranking_xpath)
+        ranking = float(ranking_element.text)
+
+    except Exception as e:
+        logger.warning(f"Failed to find ranking for artist {artist_name}, exception: {e}. Reloading")
+        driver.get(url)
+
+    return ranking
+
+
+
+
+
 #####################
 
 
@@ -318,7 +433,8 @@ def get_chords(driver):
     return {}
 #######################
 
-
+################################################################################################
+################################################################################################
 
 
 
@@ -327,11 +443,16 @@ if __name__ == "__main__":
 
     try:
 
-        url = "https://www.tab4u.com/results?tab=artists&q=%D7%9B"
+        # url = "https://www.tab4u.com/results?tab=artists&q=%D7%9B"
+        #
+        # driver.get(url)
+        # print(navigate_artists(driver, url))
+
+        url = "https://www.tab4u.com/tabs/songs/2329_%D7%99%D7%A9_%D7%9C%D7%99_%D7%97%D7%95%D7%9C%D7%A9%D7%94_%D7%9C%D7%A8%D7%A7%D7%93%D7%A0%D7%99%D7%9D.html"
 
 
         driver.get(url)
-        print(navigate_artists(driver, url))
+        print(get_song_data_init_page(driver, url, "כברה קסאי"))
 
     finally:
         driver.close()

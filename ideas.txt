@@ -9,3 +9,18 @@ info from the artist:
 
 need to think how:
 - how to process the opening, transitions chords
+
+
+if the data is too big - we can save if as raw rows separated by tabs and not by json file
+
+
+refactoring tasks:
+- create driver helper
+- refactor song's categories
+- change the data struct (parse better) of author and composer
+- artist collaborators - we can make this at the end of the crawling to be a list - by looking for words that starts
+  with " ו" and checking to see if there is an artist with this name....
+
+
+
+

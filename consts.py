@@ -12,3 +12,11 @@ ARTIST_NAME = "Artist name"
 ARTIST_BIO = "Artist bio"
 ALBUMS_CNT = "Albums cnt"
 SONGS_CNT = "Songs cnt"
+
+RANKING = "Ranking"
+AUTHOR_COMPOSER = "Author and composer"
+AUTHOR = "Author"
+COMPOSER = "Composer"
+CATEGORIES = "Categories"
+COLLABORATORS = "Collaborators"
+
