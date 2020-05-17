@@ -8,7 +8,7 @@ import logger
 import pdb
 
 
-def navigate_pages(url, data_dict, single_page_func):
+def navigate_pages(url, data_lst, artist_name, single_page_func):
     """ returns a dictionary of data, from all the pages """
 
     next_page_nav_xpath = "//div[@class='pagination row']"
@@ -16,20 +16,20 @@ def navigate_pages(url, data_dict, single_page_func):
     # check if there are multiple pages
     try:
         my_driver.find_element_by_xpath(next_page_nav_xpath)
-        return navigate_multiple_page(url, data_dict, single_page_func)
+        return navigate_multiple_page(url, data_lst, artist_name, single_page_func)
 
     except Exception as e:
-        return single_page_func(url) if data_dict is None else single_page_func(url, data_dict)
+        return single_page_func(url) if data_lst is None else single_page_func(url, data_lst, artist_name)
 
 
-def navigate_multiple_page(url, data_dict, single_page_func):
+def navigate_multiple_page(url, data_dict, artist_name, single_page_func):
     """ returns a dictionary of data, from all the pages """
 
     next_page_str = "עמוד הבא"
     next_page_a_xpath = "//a[@class='nextPre'][1]"
 
     # get current page data
-    single_page_func(url) if data_dict is None else single_page_func(url, data_dict)
+    single_page_func(url) if data_dict is None else single_page_func(url, data_dict, artist_name)
 
     try:
         # check for more pages for this artist
@@ -42,7 +42,7 @@ def navigate_multiple_page(url, data_dict, single_page_func):
                 my_driver.try_click(url, next_page_a_element)
                 logger.notice(f"moved to the next page for this artist, current url is {urllib.parse.unquote(url)}")
 
-                navigate_multiple_page(url, data_dict, single_page_func)
+                navigate_multiple_page(url, data_dict, artist_name, single_page_func)
 
             except Exception as e:
                 logger.warning(f"Failed to go to the next page, exception: {e}. Reloading")
@@ -56,7 +56,7 @@ def navigate_multiple_page(url, data_dict, single_page_func):
 
 
 def navigate_artists(url):
-    navigate_pages(url, None, navigate_artists_single_page)
+    navigate_pages(url, None, None, navigate_artists_single_page)
 
 
 def navigate_artists_single_page(url):
@@ -101,6 +101,7 @@ def navigate_artists_single_page(url):
 
 
 def get_artist_albums_songs_cnt(artist_name, artists_albums_songs_cnt_dict):
+    """ separates the albums and songs count dictionaty into 2 parameters """
     if artist_name not in artists_albums_songs_cnt_dict:
         artist_albums_cnt = None
         artist_songs_cnt = None
@@ -151,13 +152,13 @@ def get_data_as_json_file_by_artist(curr_url, artist_name, artist_albums_cnt, ar
 
     # get data
     data_by_artist_dict = {
-        consts.SONGS_DATA: navigate_pages(curr_url, {}, navigate_songs_single_page),
         consts.ARTIST_DATA: {
             consts.ARTIST_NAME: artist_name,
             consts.ARTIST_BIO: get_artist_data(curr_url),
             consts.ALBUMS_CNT: artist_albums_cnt,
             consts.SONGS_CNT: artist_songs_cnt
-        }
+        },
+        consts.SONGS_DATA: navigate_pages(curr_url, [], artist_name, navigate_songs_single_page)
     }
 
     # dump dictionary to json file by artist name
@@ -195,7 +196,7 @@ def get_artist_data(url):
         return artist_bio_dict
 
 
-def navigate_songs_single_page(url, songs_data_dict):
+def navigate_songs_single_page(url, songs_data_lst, artist_name):
     """ returns a dictionary of songs and their data dictionaries  """
 
     songs_xpath = "//td[@class='song']"
@@ -221,8 +222,8 @@ def navigate_songs_single_page(url, songs_data_dict):
                 my_driver.try_click(url, song_a_element)
 
                 # get song's chords and words data
-                chords_dict = get_song_chords(song_url)
-                songs_data_dict[song_name] = chords_dict
+                song_data_dict = get_song_data_init_page(song_url, artist_name, song_name)
+                songs_data_lst.append(song_data_dict)
 
                 logger.log(f"parsed song {(idx+1)} for this page; name: {song_name}, href: {urllib.parse.unquote(song_url)}")
 
@@ -235,7 +236,7 @@ def navigate_songs_single_page(url, songs_data_dict):
             # go back to the previous page
             my_driver.go_back(url)
 
-        return songs_data_dict
+        return songs_data_lst
 
     except Exception as e:
         logger.warning(f"Failed to find songs by xpath: {songs_xpath}, exception: {e}. Reloading")
@@ -249,14 +250,15 @@ def navigate_songs_single_page(url, songs_data_dict):
 # TODO: move to song_page_crawl
 
 
-def get_song_data_init_page(url, artist_name):
+def get_song_data_init_page(url, artist_name, song_name):
     """ get data dict about the song from its initial page """
 
     song_data_dict = {
-        consts.RANKING: get_song_ranking(url, artist_name),
-        consts.AUTHOR_COMPOSER: get_song_author_composer(url, artist_name),
-        consts.CATEGORIES: get_song_categories(url, artist_name),
-        consts.COLLABORATORS: get_song_collaborators(url, artist_name)
+        consts.SONG_NAME: song_name,
+        consts.RANKING: get_song_ranking(url, song_name),
+        consts.AUTHOR_COMPOSER: get_song_author_composer(url, song_name),
+        consts.CATEGORIES: get_song_categories(url, song_name),
+        consts.COLLABORATORS: get_song_collaborators(url, artist_name, song_name)
 
         # TODO: get chords
         # TODO: get words
@@ -268,7 +270,7 @@ def get_song_data_init_page(url, artist_name):
     return song_data_dict
 
 
-def get_song_collaborators(url, artist_name):
+def get_song_collaborators(url, artist_name, song_name):
     """ returns a string with the names of the other artists that worked on this song """
     # TODO: we can make this at the end of the crawling to be a list -
     # TODO: by looking for words that starts with " ו" and checking to see if there is an artist with this name....
@@ -282,13 +284,13 @@ def get_song_collaborators(url, artist_name):
         collaborators = all_artists.replace(and_artist, "") if and_artist in all_artists else all_artists.replace(artist_name, "")
 
     except Exception as e:
-        logger.warning(f"Failed to find other artists for artist {artist_name}, exception: {e}. Reloading")
+        logger.warning(f"Failed to find other artists for artist {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
     return collaborators
 
 
-def get_song_categories(url, artist_name):
+def get_song_categories(url, song_name):
     """ returns a list of the song's categories """
 
     categories_xpath = "//a[@class='catLinkInSong']"
@@ -299,13 +301,13 @@ def get_song_categories(url, artist_name):
         categories_lst = [category_element.text for category_element in categories_elements]
 
     except Exception as e:
-        logger.warning(f"Failed to find categories for artist {artist_name}, exception: {e}. Reloading")
+        logger.warning(f"Failed to find categories for artist {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
     return categories_lst
 
 
-def get_song_author_composer(url, artist_name):
+def get_song_author_composer(url, song_name):
     """ returns a dictionary of the author and composer of the current song """
     # TODO: change the data struct (parse better)
 
@@ -332,13 +334,13 @@ def get_song_author_composer(url, artist_name):
             author_composer_dict.update({author_composer_header: author_composer_info})
 
     except Exception as e:
-        logger.warning(f"Failed to find composer and author for artist {artist_name}, exception: {e}. Reloading")
+        logger.warning(f"Failed to find composer and author for artist {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
     return author_composer_dict
 
 
-def get_song_ranking(url, artist_name):
+def get_song_ranking(url, song_name):
     """ returns the song's ranking as a float """
 
     ranking = None
@@ -349,29 +351,12 @@ def get_song_ranking(url, artist_name):
         ranking = float(ranking_element.text)
 
     except Exception as e:
-        logger.warning(f"Failed to find ranking for artist {artist_name}, exception: {e}. Reloading")
+        logger.warning(f"Failed to find ranking for artist {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
     return ranking
 
 
-
-
-
-#####################
-
-
-def get_song_chords(url):
-    """ returns key, value. key=song name, value=chords dictionary """
-    # TODO: change
-    return "** tmp **"
-
-
-def get_chords(driver):
-    """ returns all chords in the page in a dictionary """
-    # TODO: change
-    return {}
-#######################
 
 ################################################################################################
 ################################################################################################

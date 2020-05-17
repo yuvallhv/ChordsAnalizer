@@ -13,6 +13,7 @@ ARTIST_BIO = "Artist bio"
 ALBUMS_CNT = "Albums cnt"
 SONGS_CNT = "Songs cnt"
 
+SONG_NAME = "Song name"
 RANKING = "Ranking"
 AUTHOR_COMPOSER = "Author and composer"
 AUTHOR = "Author"
