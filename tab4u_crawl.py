@@ -1,7 +1,6 @@
 
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -18,8 +17,8 @@ import pdb
 # TODO: move to driver helpers
 def get_chrome_driver(path):
     chrome_options = Options()
-    # chrome_options.add_argument("headless")
-    chrome_options.add_argument("--window-size=1920x1080")
+    chrome_options.add_argument("headless")
+    # chrome_options.add_argument("--window-size=1920x1080")
     return webdriver.Chrome(options=chrome_options, executable_path=path)
 
 
@@ -34,6 +33,10 @@ def find_elements_by_xpath(driver, xpath):
     WebDriverWait(driver, consts.WEB_DRIVER_WAIT_TIME).until(
         EC.presence_of_element_located((By.XPATH, xpath)))
     return driver.find_elements_by_xpath(xpath)
+
+
+def xpath_by_idx(xpath, idx):
+    return "({})[{}]".format(xpath, str(idx + 1))  # note: xpath arr starts from 1
 
 
 def try_click(url, element, cnt_try=consts.CNT_TRY):
@@ -122,23 +125,20 @@ def navigate_artists_single_page(driver, url):
     artist_name = ""    # this is needed in case of warning
 
     # this shouldn't fail all page - might give empty data
-    artists_albums_cnt_dict = get_albums_cnt_data(driver)
-
-    # this shouldn't fail all page - might give empty data
-    artists_songs_cnt_dict = get_songs_cnt_data(driver)
+    artists_albums_songs_cnt_dict = get_albums_songs_cnt_data(driver, url)
 
     try:
         artists_a_element = find_elements_by_xpath(driver, artists_a_xpath)
 
         for idx, _ in enumerate(artists_a_element):
 
-            xpath_by_idx = "({})[{}]".format(artists_a_xpath, str(idx + 1))  # note: xpath arr starts from 1
-            artist_a_element = find_element_by_xpath(driver, xpath_by_idx)
+            artist_a_xpath_by_idx = xpath_by_idx(artists_a_xpath, idx)
+            artist_a_element = find_element_by_xpath(driver, artist_a_xpath_by_idx)
 
             artist_name = artist_a_element.text
 
-            artist_albums_cnt = None if artist_name not in artists_albums_cnt_dict else artists_albums_cnt_dict[artist_name]
-            artist_songs_cnt = None if artist_name not in artists_songs_cnt_dict else artists_songs_cnt_dict[artist_name]
+            artist_albums_cnt, artist_songs_cnt = get_artist_albums_songs_cnt(artist_name,
+                                                                              artists_albums_songs_cnt_dict)
 
             # go to the artist's page and create a json file for him
             try:
@@ -159,38 +159,50 @@ def navigate_artists_single_page(driver, url):
         logger.warning(f"Failed to get artists links, exception: {e}.")
 
 
-def get_albums_cnt_data(driver):
-    """  """
-    # TODO: get data on artist
-
-    # try:
-    #     artists_table_trs_xpath = "//table[@class=tbl_type5]/tbody/tr"
-    #     artists_table_trs = None
-    #
-    #
-    #     artists_table_trs = find_elements_by_xpath(driver, artists_table_trs_xpath)
-    #
-    # except Exception as e:
-    #     logger.warning(f"Failed to get artists table, exception: {e}")
-
-    return ""
+def get_artist_albums_songs_cnt(artist_name, artists_albums_songs_cnt_dict):
+    if artist_name not in artists_albums_songs_cnt_dict:
+        artist_albums_cnt = None
+        artist_songs_cnt = None
+    else:
+        artist_albums_cnt = artists_albums_songs_cnt_dict[artist_name][consts.ALBUMS_CNT]
+        artist_songs_cnt = artists_albums_songs_cnt_dict[artist_name][consts.SONGS_CNT]
+    return artist_albums_cnt, artist_songs_cnt
 
 
-def get_songs_cnt_data(driver):
-    """  """
-    # TODO: get data on artist
+def get_albums_songs_cnt_data(driver, url):
+    """ returns a dictionary of key is the artist name, value is a dictionary of albums cnt and songs cnt """
 
-    # try:
-    #     artists_table_trs_xpath = "//table[@class=tbl_type5]/tbody/tr"
-    #     artists_table_trs = None
-    #
-    #
-    #     artists_table_trs = find_elements_by_xpath(driver, artists_table_trs_xpath)
-    #
-    # except Exception as e:
-    #     logger.warning(f"Failed to get artists table, exception: {e}")
+    artists_table_trs_xpath = "//table[@class='tbl_type5']/tbody/tr"
+    albums_songs_cnt_dct = {}
 
-    return ""
+    try:
+        artists_table_trs = find_elements_by_xpath(driver, artists_table_trs_xpath)[1:]     # remove table header
+
+        for idx, _ in enumerate(artists_table_trs):
+
+            try:
+                artist_data = artists_table_trs[idx].text
+
+                if artist_data is not None:
+                    artist_data_lst = artist_data.split(" ")
+
+                    if len(artist_data) >= 3:
+                        artist_name = " ".join(artist_data_lst[:-2])
+
+                        albums_songs_cnt_dct.update(
+                            {artist_name: {
+                                consts.ALBUMS_CNT: artist_data_lst[-2],
+                                consts.SONGS_CNT: artist_data_lst[-1]
+                            }})
+
+            except Exception as e:
+                logger.warning(f"Failed to get artist data, return empty albums and songs cnt, exception: {e}")
+
+    except Exception as e:
+        logger.warning(f"Failed to get artists table, return empty albums and songs cnt, exception: {e}")
+
+    logger.log(f"Parsed artists albums and songs count: {albums_songs_cnt_dct}")
+    return albums_songs_cnt_dct
 
 
 def get_data_as_json_file_by_artist(driver, curr_url, artist_name, artist_albums_cnt, artist_songs_cnt):
@@ -198,7 +210,6 @@ def get_data_as_json_file_by_artist(driver, curr_url, artist_name, artist_albums
 
     # get data
     data_by_artist_dict = {
-        # consts.SONGS_DATA: navigate_songs(driver, curr_url),
         consts.SONGS_DATA: navigate_pages(driver, curr_url, {}, navigate_songs_single_page),
         consts.ARTIST_DATA: {
             consts.ARTIST_NAME: artist_name,
@@ -258,8 +269,8 @@ def navigate_songs_single_page(driver, url, songs_data_dict):
         for idx, _ in enumerate(songs_elements):
 
             try:
-                xpath_by_idx = "({})[{}]".format(songs_a_xpath, str(idx + 1))  # note: xpath arr starts from 1
-                song_a_element = find_element_by_xpath(driver, xpath_by_idx)
+                songs_a_xpath_by_idx = xpath_by_idx(songs_a_xpath, idx)  # note: xpath arr starts from 1
+                song_a_element = find_element_by_xpath(driver, songs_a_xpath_by_idx)
 
                 # get song's name
                 song_name = song_a_element.text
@@ -315,9 +326,6 @@ if __name__ == "__main__":
     driver = get_chrome_driver(consts.CHROME_DRIVER_PATH)
 
     try:
-
-        # url = "https://www.tab4u.com/tabs/artists/112_%D7%94%D7%A8%D7%90%D7%9C_%D7%A1%D7%A7%D7%A2%D7%AA.html"
-        url = "https://www.tab4u.com/results?tab=artists&q=%D7%A1"
 
         url = "https://www.tab4u.com/results?tab=artists&q=%D7%9B"
 
