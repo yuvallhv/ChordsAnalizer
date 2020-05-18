@@ -278,12 +278,13 @@ def get_song_lyrics_chords(url, song_name):
     chords- TODO: complete this """
 
     song_paragraphs_xpath = "//div[@id='songContentTPL']/table"
-    chords_paragraphs = []
     song_paragraphs = []
+    definitions = {}    # key = definition name, value = paragraph number
 
     try:
         song_paragraphs_elements = my_driver.find_elements_by_xpath(song_paragraphs_xpath)
 
+        # go through all paragraphs
         for paragraph_idx, song_paragraph_element in enumerate(song_paragraphs_elements):
 
             chords_lines = []
@@ -292,7 +293,7 @@ def get_song_lyrics_chords(url, song_name):
             song_lines_xpath = f"{my_driver.xpath_by_idx(song_paragraphs_xpath, paragraph_idx)}/tbody/tr/td"
             song_lines_elements = my_driver.find_elements_by_xpath(song_lines_xpath)
 
-
+            # go through all lines in the paragraph
             for line_idx, song_line_element in enumerate(song_lines_elements):
 
                 line_text = song_line_element.text
@@ -304,8 +305,19 @@ def get_song_lyrics_chords(url, song_name):
                 elif line_type == consts.SONG_CLASS:
                     song_lines.append(line_text)
 
-            chords_paragraphs.append(chords_lines)
-            song_paragraphs.append(song_lines)
+            definition_name, paragraph_type, song_lines = get_paragraph_definition(chords_lines, definitions,
+                                                                                   song_lines, song_paragraphs)
+
+            paragraph = {
+                consts.TYPE: paragraph_type,
+                consts.DEFINITION_NAME: definition_name,
+                consts.CHORDS_LINES: chords_lines,
+                consts.LYRICS_LINES: song_lines
+            }
+
+            song_paragraphs.append(paragraph)
+
+        pdb.set_trace()
 
     # TODO: deal with: פזמון, פתיח...
 
@@ -318,8 +330,27 @@ def get_song_lyrics_chords(url, song_name):
         my_driver.driver.get(url)
 
 
+def get_paragraph_definition(chords_lines, definitions, song_lines, song_paragraphs):
+    """ decide if this paragraph is type definition/repetitive/unique """
 
+    # decide if this is a definition of a repetitive section
+    if len(song_lines) == 1 and len(chords_lines) == 0 and ":" in song_lines[0]:
+        paragraph_type = consts.DEFINITION
+        definition_name = song_lines[0].replace(":", "")
+        definition_paragraph_num = len(song_paragraphs)
+        definitions.update({definition_name: definition_paragraph_num})
+        song_lines = []
 
+    # decide if this paragraph was already defined before
+    elif len(song_lines) == 1 and len(chords_lines) == 0 and song_lines[0] in definitions:
+        paragraph_type = consts.REPETITIVE
+        definition_name = song_lines[0]
+        song_lines = []
+
+    else:
+        paragraph_type = consts.UNIQUE
+        definition_name = ""
+    return definition_name, paragraph_type, song_lines
 
 
 def get_song_collaborators(url, artist_name, song_name):

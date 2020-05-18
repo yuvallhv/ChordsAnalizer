@@ -4,9 +4,11 @@ CHROME_DRIVER_PATH = "../chromedriver"
 WEB_DRIVER_WAIT_TIME = 10
 CNT_TRY = 3
 
+
 # classes names in tab4u website
 CHORDS_CLASS = "chords"
 SONG_CLASS = "song"
+
 
 # dictionary keys
 SONGS_DATA = "Songs data"
@@ -25,3 +27,16 @@ COMPOSER = "Composer"
 CATEGORIES = "Categories"
 COLLABORATORS = "Collaborators"
 
+LYRICS_LINES = "Lyrics lines"
+CHORDS_LINES = "Chords lines"
+TYPE = "Type"
+DEFINITION_NAME = "Definition name"
+
+TEXT = "Text"
+WEIGHT = "Weight"
+
+
+# paragraph types
+UNIQUE = "unique"
+DEFINITION = "definition"
+REPETITIVE = "repetitive"
