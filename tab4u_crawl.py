@@ -280,6 +280,8 @@ def get_song_lyrics_chords(url, song_name):
     song_paragraphs_xpath = "//div[@id='songContentTPL']/table"
     song_paragraphs = []
     definitions = {}    # key = definition name, value = paragraph number
+    is_current_a_definition = False
+    definition_name = ""
 
     try:
         song_paragraphs_elements = my_driver.find_elements_by_xpath(song_paragraphs_xpath)
@@ -305,17 +307,31 @@ def get_song_lyrics_chords(url, song_name):
                 elif line_type == consts.SONG_CLASS:
                     song_lines.append(line_text)
 
-            definition_name, paragraph_type, song_lines = get_paragraph_definition(chords_lines, definitions,
-                                                                                   song_lines, song_paragraphs)
+            # TODO: how to end tabs paragraph?
+            # TODO: how to put chords in the tabs paragraph
 
-            paragraph = {
-                consts.TYPE: paragraph_type,
-                consts.DEFINITION_NAME: definition_name,
-                consts.CHORDS_LINES: chords_lines,
-                consts.LYRICS_LINES: song_lines
-            }
+            # check if this paragraph is part of a definition started at the previous paragraph
+            if is_current_a_definition:
+                song_paragraphs.append({
+                    consts.TYPE: consts.DEFINITION,
+                    consts.DEFINITION_NAME: definition_name,
+                    consts.CHORDS_LINES: chords_lines,
+                    consts.LYRICS_LINES: song_lines
+                })
 
-            song_paragraphs.append(paragraph)
+                is_current_a_definition = False
+
+            else:
+                is_current_a_definition, definition_name, paragraph_type, song_lines = get_paragraph_definition(
+                    chords_lines, definitions, song_lines, song_paragraphs)
+
+                if not is_current_a_definition:
+                    song_paragraphs.append({
+                        consts.TYPE: paragraph_type,
+                        consts.DEFINITION_NAME: definition_name,
+                        consts.CHORDS_LINES: chords_lines,
+                        consts.LYRICS_LINES: song_lines
+                    })
 
         pdb.set_trace()
 
@@ -333,13 +349,23 @@ def get_song_lyrics_chords(url, song_name):
 def get_paragraph_definition(chords_lines, definitions, song_lines, song_paragraphs):
     """ decide if this paragraph is type definition/repetitive/unique """
 
+    is_next_define = False
+
     # decide if this is a definition of a repetitive section
-    if len(song_lines) == 1 and len(chords_lines) == 0 and ":" in song_lines[0]:
-        paragraph_type = consts.DEFINITION
+    if song_lines[0][-1] == ":":
+
+        # decide if the defined paragraph is the next or the current
+        if len(song_lines) == 1 and len(chords_lines) == 0:
+            is_next_define = True
+            paragraph_type = None
+
+        else:
+            paragraph_type = consts.DEFINITION
+            song_lines = song_lines[1:]
+
         definition_name = song_lines[0].replace(":", "")
         definition_paragraph_num = len(song_paragraphs)
         definitions.update({definition_name: definition_paragraph_num})
-        song_lines = []
 
     # decide if this paragraph was already defined before
     elif len(song_lines) == 1 and len(chords_lines) == 0 and song_lines[0] in definitions:
@@ -350,7 +376,8 @@ def get_paragraph_definition(chords_lines, definitions, song_lines, song_paragra
     else:
         paragraph_type = consts.UNIQUE
         definition_name = ""
-    return definition_name, paragraph_type, song_lines
+
+    return is_next_define, definition_name, paragraph_type, song_lines
 
 
 def get_song_collaborators(url, artist_name, song_name):

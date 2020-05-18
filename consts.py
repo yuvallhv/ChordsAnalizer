@@ -8,6 +8,7 @@ CNT_TRY = 3
 # classes names in tab4u website
 CHORDS_CLASS = "chords"
 SONG_CLASS = "song"
+TABS_CLASS = "tabs"
 
 
 # dictionary keys
@@ -29,8 +30,12 @@ COLLABORATORS = "Collaborators"
 
 LYRICS_LINES = "Lyrics lines"
 CHORDS_LINES = "Chords lines"
+TABS_LINES = "Tabs lines"
 TYPE = "Type"
 DEFINITION_NAME = "Definition name"
+
+TABS_LINE = "Tabs line"
+HAS_CHORDS = "Has chords"
 
 TEXT = "Text"
 WEIGHT = "Weight"
@@ -40,3 +45,4 @@ WEIGHT = "Weight"
 UNIQUE = "unique"
 DEFINITION = "definition"
 REPETITIVE = "repetitive"
+TABS = "tabs"
