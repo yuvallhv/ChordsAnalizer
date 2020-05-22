@@ -48,3 +48,12 @@ UNIQUE = "unique"
 DEFINITION = "definition"
 REPETITIVE = "repetitive"
 TABS = "tabs"
+
+
+# author - composer options
+AUTHOR_AND_COMPOSER_HEB = "מחבר ומלחין"
+COMPOSER_AND_AUTHOR_HEB = "מלחין ומחבר"
+AUTHOR_HEB = "מחבר"
+COMPOSER_HEB = "מלחין"
+
+

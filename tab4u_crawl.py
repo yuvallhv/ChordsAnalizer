@@ -233,8 +233,6 @@ def get_artist_data(url):
     artist_bio_dict = {}
     last_artist_bio_key = None
 
-    pdb.set_trace()
-
     try:
         artist_bios_elements = my_driver.find_elements_by_xpath(artist_bios_xpath)
 
@@ -264,10 +262,17 @@ def get_artist_data(url):
 def get_song_data_init_page(url, artist_name, song_name):
     """ get data dict about the song from its initial page """
 
+    author, composer = get_song_author_composer(url, song_name)
+
     song_data_dict = {
         consts.SONG_NAME: song_name,
         consts.RANKING: get_song_ranking(url, song_name),
-        consts.AUTHOR_COMPOSER: get_song_author_composer(url, song_name),
+
+        # consts.AUTHOR_COMPOSER: get_song_author_composer(url, song_name),
+
+        consts.AUTHOR: author,
+        consts.COMPOSER: composer,
+
         consts.CATEGORIES: get_song_categories(url, song_name),
         consts.COLLABORATORS: get_song_collaborators(url, artist_name, song_name),
         consts.PARAGRAPHS: get_song_paragraphs_content(url, song_name)
@@ -522,15 +527,15 @@ def get_song_categories(url, song_name):
 
 
 def get_song_author_composer(url, song_name):
-    """ returns a dictionary of the author and composer of the current song """
-    # TODO: change the data struct (parse better)
+    """ returns author and composer names """
 
-    author_composer_dict = None
     author_composer_headers_spans_xpath = "//div[@id='aAndcArea']/span[@id='koteretInSong']"
     author_composer_info_spans_xpath = "//div[@id='aAndcArea']/span[@id='textInSong']"
 
+    author = None
+    composer = None
+
     try:
-        author_composer_dict = {}
         author_composer_headers_spans = my_driver.find_elements_by_xpath(author_composer_headers_spans_xpath)
         author_composer_info_spans = my_driver.find_elements_by_xpath(author_composer_info_spans_xpath)
 
@@ -541,17 +546,26 @@ def get_song_author_composer(url, song_name):
 
         for idx, (author_composer_header_span, author_composer_info_span) in \
                 enumerate(zip(author_composer_headers_spans, author_composer_info_spans)):
+
             author_composer_header = author_composer_header_span.text.replace(":", "")
             author_composer_info = author_composer_info_span.text
 
-            # TODO: parse this better
-            author_composer_dict.update({author_composer_header: author_composer_info})
+            if author_composer_header == consts.AUTHOR_AND_COMPOSER_HEB or \
+                    author_composer_header == consts.COMPOSER_AND_AUTHOR_HEB:
+                author = author_composer_info
+                composer = author_composer_info
+
+            elif author_composer_header == consts.AUTHOR_HEB:
+                author = author_composer_info
+
+            elif author_composer_header == consts.COMPOSER_HEB:
+                composer = author_composer_info
 
     except Exception as e:
         logger.warning(f"Failed to find composer and author for song {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
 
-    return author_composer_dict
+    return author, composer
 
 
 def get_song_ranking(url, song_name):
@@ -579,7 +593,7 @@ if __name__ == "__main__":
     my_driver.get_chrome_driver(consts.CHROME_DRIVER_PATH)
 
     try:
-        url = "https://www.tab4u.com/tabs/artists/131_%D7%9B%D7%9C%D7%90_6.html"
+        url = "https://www.tab4u.com/tabs/artists/400_%D7%9B%D7%91%D7%A8%D7%94_%D7%A7%D7%A1%D7%90%D7%99.html"
         my_driver.driver.get(url)
 
         print(get_data_as_json_file_by_artist(url, "כלא 6", 2, 2))
