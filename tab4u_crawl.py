@@ -7,6 +7,9 @@ import logger
 import pdb
 
 
+# ######################################################################################################################
+# ########################################### pages navigation #########################################################
+
 def navigate_pages(url, data_lst, artist_name, single_page_func):
     """ returns a dictionary of data, from all the pages """
 
@@ -101,6 +104,57 @@ def navigate_artists_single_page(url):
         logger.warning(f"Failed to get artists links, exception: {e}.")
 
 
+def navigate_songs_single_page(url, songs_data_lst, artist_name):
+    """ returns a dictionary of songs and their data dictionaries  """
+
+    songs_xpath = "//td[@class='song']"
+    songs_a_xpath = "//td[@class='song']/a"
+
+    try:
+        songs_elements = my_driver.find_elements_by_xpath(songs_xpath)
+
+        song_url = ""  # needed for warning msg in case of failure
+        song_name = ""  # needed for warning msg in case of failure
+
+        for idx, _ in enumerate(songs_elements):
+
+            try:
+                songs_a_xpath_by_idx = my_driver.xpath_by_idx(songs_a_xpath, idx)  # note: xpath arr starts from 1
+                song_a_element = my_driver.find_element_by_xpath(songs_a_xpath_by_idx)
+
+                # get song's name
+                song_name = song_a_element.text
+
+                # get the link to the song's page and move to the page
+                song_url = song_a_element.get_attribute('href')
+                my_driver.try_click(url, song_a_element)
+
+                # get song's chords and words data
+                song_data_dict = get_song_data_init_page(song_url, artist_name, song_name)
+                songs_data_lst.append(song_data_dict)
+
+                logger.log(f"parsed song {(idx+1)} for this page; name: {song_name}, href: {urllib.parse.unquote(song_url)}")
+
+            except Exception as e:
+                logger.warning(f"Failed to parse a song {idx} of current page, song href: "
+                               f"{urllib.parse.unquote(song_url)}, song text: "
+                               f"{song_name}, current url: {urllib.parse.unquote(url)}, exception: {e}. Reloading")
+                my_driver.driver.get(url)
+
+            # go back to the previous page
+            my_driver.go_back(url)
+
+        return songs_data_lst
+
+    except Exception as e:
+        logger.warning(f"Failed to find songs by xpath: {songs_xpath}, exception: {e}. Reloading")
+        my_driver.driver.get(url)
+        return {}
+
+
+# ######################################################################################################################
+# ########################################### get artist data ##########################################################
+
 def get_artist_albums_songs_cnt(artist_name, artists_albums_songs_cnt_dict):
     """ separates the albums and songs count dictionaty into 2 parameters """
     if artist_name not in artists_albums_songs_cnt_dict:
@@ -175,10 +229,11 @@ def get_data_as_json_file_by_artist(curr_url, artist_name, artist_albums_cnt, ar
 def get_artist_data(url):
     """ returns a dictionary of the artist's biography information """
 
-    # TODO: bug in get bio - look for example in כוורת
-
     artist_bios_xpath = "//ul[@class='artist_block_bio']/li"
     artist_bio_dict = {}
+    last_artist_bio_key = None
+
+    pdb.set_trace()
 
     try:
         artist_bios_elements = my_driver.find_elements_by_xpath(artist_bios_xpath)
@@ -188,6 +243,10 @@ def get_artist_data(url):
             if ": " in artist_bio_e.text:
                 artist_bio = artist_bio_e.text.split(": ")
                 artist_bio_dict[artist_bio[0]] = artist_bio[1]
+                last_artist_bio_key = artist_bio[0]
+
+            elif last_artist_bio_key:
+                artist_bio_dict[last_artist_bio_key] += artist_bio_e.text
 
         logger.log(f"parsed artist's biography:' {artist_bio_dict}")
 
@@ -199,57 +258,8 @@ def get_artist_data(url):
         return artist_bio_dict
 
 
-def navigate_songs_single_page(url, songs_data_lst, artist_name):
-    """ returns a dictionary of songs and their data dictionaries  """
-
-    songs_xpath = "//td[@class='song']"
-    songs_a_xpath = "//td[@class='song']/a"
-
-    try:
-        songs_elements = my_driver.find_elements_by_xpath(songs_xpath)
-
-        song_url = ""  # needed for warning msg in case of failure
-        song_name = ""  # needed for warning msg in case of failure
-
-        for idx, _ in enumerate(songs_elements):
-
-            try:
-                songs_a_xpath_by_idx = my_driver.xpath_by_idx(songs_a_xpath, idx)  # note: xpath arr starts from 1
-                song_a_element = my_driver.find_element_by_xpath(songs_a_xpath_by_idx)
-
-                # get song's name
-                song_name = song_a_element.text
-
-                # get the link to the song's page and move to the page
-                song_url = song_a_element.get_attribute('href')
-                my_driver.try_click(url, song_a_element)
-
-                # get song's chords and words data
-                song_data_dict = get_song_data_init_page(song_url, artist_name, song_name)
-                songs_data_lst.append(song_data_dict)
-
-                logger.log(f"parsed song {(idx+1)} for this page; name: {song_name}, href: {urllib.parse.unquote(song_url)}")
-
-            except Exception as e:
-                logger.warning(f"Failed to parse a song {idx} of current page, song href: "
-                               f"{urllib.parse.unquote(song_url)}, song text: "
-                               f"{song_name}, current url: {urllib.parse.unquote(url)}, exception: {e}. Reloading")
-                my_driver.driver.get(url)
-
-            # go back to the previous page
-            my_driver.go_back(url)
-
-        return songs_data_lst
-
-    except Exception as e:
-        logger.warning(f"Failed to find songs by xpath: {songs_xpath}, exception: {e}. Reloading")
-        my_driver.driver.get(url)
-        return {}
-
-
-################################################################################################
-################################################################################################
-
+# ######################################################################################################################
+# ########################################### get song data ############################################################
 
 def get_song_data_init_page(url, artist_name, song_name):
     """ get data dict about the song from its initial page """
@@ -561,26 +571,19 @@ def get_song_ranking(url, song_name):
     return ranking
 
 
-
-################################################################################################
-################################################################################################
-
-
+# ######################################################################################################################
+# ################################################ main ################################################################
 
 if __name__ == "__main__":
     my_driver = driver_helper.DriverHelper()
     my_driver.get_chrome_driver(consts.CHROME_DRIVER_PATH)
 
     try:
-
         url = "https://www.tab4u.com/tabs/artists/131_%D7%9B%D7%9C%D7%90_6.html"
         my_driver.driver.get(url)
 
-
         print(get_data_as_json_file_by_artist(url, "כלא 6", 2, 2))
 
-
-        # print(get_song_paragraphs_content(url, "כוורת"))
 
     finally:
         my_driver.driver.close()
