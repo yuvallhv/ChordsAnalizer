@@ -2,7 +2,6 @@ import json
 import urllib
 
 import driver_helper
-import song_page_crawl
 import consts
 import logger
 import pdb
@@ -16,13 +15,13 @@ def navigate_pages(url, data_lst, artist_name, single_page_func):
     # check if there are multiple pages
     try:
         my_driver.find_element_by_xpath(next_page_nav_xpath)
-        return navigate_multiple_page(url, data_lst, artist_name, single_page_func)
+        return navigate_multiple_pages(url, data_lst, artist_name, single_page_func)
 
     except Exception as e:
         return single_page_func(url) if data_lst is None else single_page_func(url, data_lst, artist_name)
 
 
-def navigate_multiple_page(url, data_dict, artist_name, single_page_func):
+def navigate_multiple_pages(url, data_dict, artist_name, single_page_func):
     """ returns a dictionary of data, from all the pages """
 
     next_page_str = "עמוד הבא"
@@ -42,7 +41,7 @@ def navigate_multiple_page(url, data_dict, artist_name, single_page_func):
                 my_driver.try_click(url, next_page_a_element)
                 logger.notice(f"moved to the next page for this artist, current url is {urllib.parse.unquote(url)}")
 
-                navigate_multiple_page(url, data_dict, artist_name, single_page_func)
+                navigate_multiple_pages(url, data_dict, artist_name, single_page_func)
 
             except Exception as e:
                 logger.warning(f"Failed to go to the next page, exception: {e}. Reloading")
@@ -56,6 +55,8 @@ def navigate_multiple_page(url, data_dict, artist_name, single_page_func):
 
 
 def navigate_artists(url):
+    """ navigates artist pages, dump a json file for each artist """
+
     navigate_pages(url, None, None, navigate_artists_single_page)
 
 
@@ -246,10 +247,8 @@ def navigate_songs_single_page(url, songs_data_lst, artist_name):
         return {}
 
 
-
 ################################################################################################
 ################################################################################################
-# TODO: move to song_page_crawl
 
 
 def get_song_data_init_page(url, artist_name, song_name):
@@ -260,24 +259,108 @@ def get_song_data_init_page(url, artist_name, song_name):
         consts.RANKING: get_song_ranking(url, song_name),
         consts.AUTHOR_COMPOSER: get_song_author_composer(url, song_name),
         consts.CATEGORIES: get_song_categories(url, song_name),
-        consts.COLLABORATORS: get_song_collaborators(url, artist_name, song_name)
-
-        # TODO: get chords
-        # TODO: get words
-        # consts.CHORDS: "",
-        # consts.WORDS: "",
+        consts.COLLABORATORS: get_song_collaborators(url, artist_name, song_name),
+        consts.PARAGRAPHS: get_song_paragraphs_content(url, song_name)
     }
 
-    logger.log(f"Found song data: {song_data_dict}")
+    logger.log(f"Found song data for song: {song_data_dict[consts.SONG_NAME]}")
     return song_data_dict
 
 
-def get_song_lyrics_chords(url, song_name):
-    """ Returns the song's lyrics and chords.
-    lyrics- organized in a list of lists. Each cell represents a paragraph. Each cell in the paragraph represents a line
-    chords- TODO: complete this """
+def fix_tab_paragraphs(song_paragraphs):
 
-    song_paragraphs_xpath = "//div[@id='songContentTPL']/table"
+    fixed_song_paragraphs = []
+    paragraph_type = consts.UNIQUE
+    definition_name = ""
+    tabs_lines = []
+    chords_lines = []
+    has_chords = False
+
+    for paragraph in song_paragraphs:
+
+        if not paragraph[consts.IS_TAB_PARA]:
+
+            # if there is a tabs paragraph in fixing progress, it is now finished and should be appended
+            chords_lines, definition_name, paragraph_type, tabs_lines = append_fixed_tabs_paragraph(
+                chords_lines, definition_name, fixed_song_paragraphs, paragraph, paragraph_type, tabs_lines, False)
+
+            paragraph.pop(consts.IS_TAB_PARA)
+            fixed_song_paragraphs.append(paragraph)
+
+
+        # check if this is tabs paragraph of tabs
+        elif len(paragraph[consts.TABS_LINES]) > 0:
+
+            #  when reaching to a definition of a new tab paragraph, append the last tab paragraph, if such exists
+            if paragraph[consts.TYPE] == consts.DEFINITION:
+                chords_lines, definition_name, paragraph_type, tabs_lines = append_fixed_tabs_paragraph(
+                    chords_lines, definition_name, fixed_song_paragraphs, paragraph, paragraph_type, tabs_lines)
+
+            tabs_lines.append({
+                consts.TABS_LINE: '\n'.join(paragraph[consts.TABS_LINES]),
+                consts.HAS_CHORDS: has_chords
+            })
+
+            has_chords = False
+
+
+        # check if this is tabs paragraph of chords
+        else:
+
+            has_chords = True
+
+            #  when reaching to a definition of a new tab paragraph, append the last tab paragraph, if such exists
+            if paragraph[consts.TYPE] == consts.DEFINITION:
+                chords_lines, definition_name, paragraph_type, tabs_lines = append_fixed_tabs_paragraph(
+                    chords_lines, definition_name, fixed_song_paragraphs, paragraph, paragraph_type, tabs_lines)
+
+            chords_lines.append(paragraph[consts.CHORDS_LINES][0])
+
+
+    # if there is a tabs paragraph in fixing progress, it is now finished and should be appended
+    if len(tabs_lines) > 0:
+        fixed_song_paragraphs.append({
+            consts.TYPE: paragraph_type,
+            consts.DEFINITION_NAME: definition_name,
+            consts.CHORDS_LINES: chords_lines,
+            consts.TABS_LINES: tabs_lines,
+            consts.LYRICS_LINES: []
+        })
+
+    return fixed_song_paragraphs
+
+
+def append_fixed_tabs_paragraph(chords_lines, definition_name, fixed_song_paragraphs, paragraph, paragraph_type,
+                                tabs_lines, is_definition=True):
+    """ appends the fixed paragraph and initiate the parameters again to be ready for the next one """
+
+    if len(tabs_lines) > 0:
+        fixed_song_paragraphs.append({
+            consts.TYPE: paragraph_type,
+            consts.DEFINITION_NAME: definition_name,
+            consts.CHORDS_LINES: chords_lines,
+            consts.TABS_LINES: tabs_lines,
+            consts.LYRICS_LINES: []
+        })
+        # create the parameters for the new paragraph
+        tabs_lines = []
+        chords_lines = []
+
+    if is_definition:
+        definition_name = paragraph[consts.DEFINITION_NAME]
+        paragraph_type = paragraph[consts.TYPE]
+    else:
+        definition_name = ""
+        paragraph_type = consts.UNIQUE
+
+    return chords_lines, definition_name, paragraph_type, tabs_lines
+
+
+def get_song_paragraphs_content(url, song_name):
+    """ Returns a list of the song's paragraphs. Each item in the list contains the paragraph definition, chords, tabs
+    and lyrics. """
+
+    song_paragraphs_xpath = "//div[@id='songContentTPL']/*"
     song_paragraphs = []
     definitions = {}    # key = definition name, value = paragraph number
     is_current_a_definition = False
@@ -286,11 +369,17 @@ def get_song_lyrics_chords(url, song_name):
     try:
         song_paragraphs_elements = my_driver.find_elements_by_xpath(song_paragraphs_xpath)
 
-        # go through all paragraphs
+        # go through all paragraphs (and br)
         for paragraph_idx, song_paragraph_element in enumerate(song_paragraphs_elements):
 
+            # Do not try to parse tag br paragraphs
+            if song_paragraph_element.tag_name == "br":
+                continue
+
             chords_lines = []
+            tabs_lines = []
             song_lines = []
+            is_tabs_paragraph = False
 
             song_lines_xpath = f"{my_driver.xpath_by_idx(song_paragraphs_xpath, paragraph_idx)}/tbody/tr/td"
             song_lines_elements = my_driver.find_elements_by_xpath(song_lines_xpath)
@@ -304,11 +393,17 @@ def get_song_lyrics_chords(url, song_name):
                 if line_type == consts.CHORDS_CLASS:
                     chords_lines.append(line_text)
 
+                if line_type == consts.TABS_CLASS:
+                    tabs_lines.append(line_text)
+                    is_tabs_paragraph = True
+
                 elif line_type == consts.SONG_CLASS:
                     song_lines.append(line_text)
 
-            # TODO: how to end tabs paragraph?
-            # TODO: how to put chords in the tabs paragraph
+            # check if this paragraph belongs to a larger tab paragraph - it has no br at the end
+            next_idx = paragraph_idx + 1
+            if next_idx < len(song_paragraphs_elements) and song_paragraphs_elements[next_idx].tag_name != "br":
+                is_tabs_paragraph = True
 
             # check if this paragraph is part of a definition started at the previous paragraph
             if is_current_a_definition:
@@ -316,7 +411,9 @@ def get_song_lyrics_chords(url, song_name):
                     consts.TYPE: consts.DEFINITION,
                     consts.DEFINITION_NAME: definition_name,
                     consts.CHORDS_LINES: chords_lines,
-                    consts.LYRICS_LINES: song_lines
+                    consts.TABS_LINES: tabs_lines,
+                    consts.LYRICS_LINES: song_lines,
+                    consts.IS_TAB_PARA: is_tabs_paragraph
                 })
 
                 is_current_a_definition = False
@@ -330,20 +427,17 @@ def get_song_lyrics_chords(url, song_name):
                         consts.TYPE: paragraph_type,
                         consts.DEFINITION_NAME: definition_name,
                         consts.CHORDS_LINES: chords_lines,
-                        consts.LYRICS_LINES: song_lines
+                        consts.TABS_LINES: tabs_lines,
+                        consts.LYRICS_LINES: song_lines,
+                        consts.IS_TAB_PARA: is_tabs_paragraph
                     })
 
-        pdb.set_trace()
-
-    # TODO: deal with: פזמון, פתיח...
-
-    # TODO: dael with tabs
-
-
+        return fix_tab_paragraphs(song_paragraphs)
 
     except Exception as e:
         logger.warning(f"Failed to find song's words and chords for song {song_name}, exception: {e}. Reloading")
         my_driver.driver.get(url)
+        return ""
 
 
 def get_paragraph_definition(chords_lines, definitions, song_lines, song_paragraphs):
@@ -352,7 +446,11 @@ def get_paragraph_definition(chords_lines, definitions, song_lines, song_paragra
     is_next_define = False
 
     # decide if this is a definition of a repetitive section
-    if song_lines[0][-1] == ":":
+    if len(song_lines) > 0 and song_lines[0][-1] == ":":
+
+        definition_name = song_lines[0].replace(":", "")
+        definition_paragraph_num = len(song_paragraphs)
+        definitions.update({definition_name: definition_paragraph_num})
 
         # decide if the defined paragraph is the next or the current
         if len(song_lines) == 1 and len(chords_lines) == 0:
@@ -362,10 +460,6 @@ def get_paragraph_definition(chords_lines, definitions, song_lines, song_paragra
         else:
             paragraph_type = consts.DEFINITION
             song_lines = song_lines[1:]
-
-        definition_name = song_lines[0].replace(":", "")
-        definition_paragraph_num = len(song_paragraphs)
-        definitions.update({definition_name: definition_paragraph_num})
 
     # decide if this paragraph was already defined before
     elif len(song_lines) == 1 and len(chords_lines) == 0 and song_lines[0] in definitions:
@@ -479,17 +573,14 @@ if __name__ == "__main__":
 
     try:
 
-        # url = "https://www.tab4u.com/results?tab=artists&q=%D7%9B"
-        #
-        # my_driver.driver.get(url)
-        # print(navigate_artists(url))
-
-        url = "https://www.tab4u.com/tabs/songs/2329_%D7%99%D7%A9_%D7%9C%D7%99_%D7%97%D7%95%D7%9C%D7%A9%D7%94_%D7%9C%D7%A8%D7%A7%D7%93%D7%A0%D7%99%D7%9D.html"
-
-
+        url = "https://www.tab4u.com/tabs/artists/131_%D7%9B%D7%9C%D7%90_6.html"
         my_driver.driver.get(url)
 
-        print(get_song_lyrics_chords(url, "כברה קסאי"))
+
+        print(get_data_as_json_file_by_artist(url, "כלא 6", 2, 2))
+
+
+        # print(get_song_paragraphs_content(url, "כוורת"))
 
     finally:
         my_driver.driver.close()
