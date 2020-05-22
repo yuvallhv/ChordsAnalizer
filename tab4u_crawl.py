@@ -263,19 +263,17 @@ def get_song_data_init_page(url, artist_name, song_name):
     """ get data dict about the song from its initial page """
 
     author, composer = get_song_author_composer(url, song_name)
+    paragraph_content, definitions = get_song_paragraphs_content(url, song_name)
 
     song_data_dict = {
         consts.SONG_NAME: song_name,
         consts.RANKING: get_song_ranking(url, song_name),
-
-        # consts.AUTHOR_COMPOSER: get_song_author_composer(url, song_name),
-
         consts.AUTHOR: author,
         consts.COMPOSER: composer,
-
         consts.CATEGORIES: get_song_categories(url, song_name),
         consts.COLLABORATORS: get_song_collaborators(url, artist_name, song_name),
-        consts.PARAGRAPHS: get_song_paragraphs_content(url, song_name)
+        consts.PARAGRAPHS: paragraph_content,
+        consts.DEFINITIONS: definitions
     }
 
     logger.log(f"Found song data for song: {song_data_dict[consts.SONG_NAME]}")
@@ -447,7 +445,8 @@ def get_song_paragraphs_content(url, song_name):
                         consts.IS_TAB_PARA: is_tabs_paragraph
                     })
 
-        return fix_tab_paragraphs(song_paragraphs)
+        fixed_paragraphs = fix_tab_paragraphs(song_paragraphs)
+        return fixed_paragraphs, definitions
 
     except Exception as e:
         logger.warning(f"Failed to find song's words and chords for song {song_name}, exception: {e}. Reloading")

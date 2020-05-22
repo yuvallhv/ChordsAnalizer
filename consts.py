@@ -28,6 +28,7 @@ COMPOSER = "Composer"
 CATEGORIES = "Categories"
 COLLABORATORS = "Collaborators"
 PARAGRAPHS = "Paragraphs"
+DEFINITIONS = "Definitions"
 
 LYRICS_LINES = "Lyrics lines"
 CHORDS_LINES = "Chords lines"
