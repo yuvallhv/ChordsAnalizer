@@ -593,11 +593,12 @@ if __name__ == "__main__":
     my_driver.get_chrome_driver(consts.CHROME_DRIVER_PATH)
 
     try:
-        url = "https://www.tab4u.com/tabs/artists/400_%D7%9B%D7%91%D7%A8%D7%94_%D7%A7%D7%A1%D7%90%D7%99.html"
+        url = "https://www.tab4u.com/tabs/artists/131_%D7%9B%D7%9C%D7%90_6.html"
         my_driver.driver.get(url)
 
         print(get_data_as_json_file_by_artist(url, "כלא 6", 2, 2))
 
+        # TODO: add definitions to the song_data!!!!
 
     finally:
         my_driver.driver.close()

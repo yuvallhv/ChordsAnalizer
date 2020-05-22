@@ -42,6 +42,12 @@ HAS_CHORDS = "Has chords"
 TEXT = "Text"
 WEIGHT = "Weight"
 
+BAND_MEMBER_NAME = "Band member name"
+BAND_MEMBER_ROLE = "Band member role"
+
+START = "Start"
+END = "End"
+
 
 # paragraph types
 UNIQUE = "unique"
