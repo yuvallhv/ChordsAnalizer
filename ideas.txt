@@ -16,6 +16,11 @@ refactoring tasks:
   with " ו" and checking to see if there is an artist with this name....
 
 
+
+
+
+
+
 processing tasks:
 
 important to remember:
@@ -26,8 +31,8 @@ important to remember:
 1. in "Artist data" --> "Artist bio"
 להפוך את ״חברי הלהקה״ לרשימה של מילונים באופן הבא:
 {
-    consts.BAND_MEMBER_NAME: ״״
-    consts.BAND_MEMBER_ROLE: ״״
+    consts.MEMBER_NAME: ״״
+    consts.MEMBER_ROLE: ״״
 }
 אפשר לעשות עבור אלו שמופרדים ב ״-״ (אם אין תפקיד אז פשוט להשאיר אותו כמחרוזת ריקה)
 
@@ -78,5 +83,12 @@ by looking for words that starts
 להחליט אם להעביר את התוכן של בתים שהם הגדרות לתוך המילון של הגדרות (נראה לי שכדאי)
 
 
+8. maybe remove from the json each data that is empty - it shouldn't have a key at all
 
+
+9. in "Songs data" -->  "Paragraphs" --> "Chords lines"
+לכל שורת אקורדים להוריד את ה '\n"
+
+
+9. x2x2x2x2x2
 

@@ -3,6 +3,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
 import logger
 import consts
@@ -17,23 +18,28 @@ class DriverHelper:
         """ returns a chrome driver """
 
         chrome_options = Options()
-        # chrome_options.add_argument("headless")
-        chrome_options.add_argument("--window-size=1920x1080")
-        self.driver = webdriver.Chrome(options=chrome_options, executable_path=path)
+        chrome_options.add_argument("headless")
+        # chrome_options.add_argument("--window-size=1920x1080")
+        self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+        # self.driver = webdriver.Chrome(options=chrome_options, executable_path=path)
 
 
-    def find_element_by_xpath(self, xpath):
+    def find_element_by_xpath(self, xpath, wait=True):
         """ find the required element (single) by xpath and wait for it to load """
 
-        return WebDriverWait(self.driver, consts.WEB_DRIVER_WAIT_TIME).until(
-            EC.presence_of_element_located((By.XPATH, xpath)))
+        if wait:
+            return WebDriverWait(self.driver, consts.WEB_DRIVER_WAIT_TIME).until(
+                EC.presence_of_element_located((By.XPATH, xpath)))
+        else:
+            return self.driver.find_element_by_xpath(xpath)
 
 
-    def find_elements_by_xpath(self, xpath):
+    def find_elements_by_xpath(self, xpath, wait=True):
         """ find the required elements (multiple) by xpath and wait for them to load """
 
-        WebDriverWait(self.driver, consts.WEB_DRIVER_WAIT_TIME).until(
-            EC.presence_of_element_located((By.XPATH, xpath)))
+        if wait:
+            WebDriverWait(self.driver, consts.WEB_DRIVER_WAIT_TIME).until(
+                EC.presence_of_element_located((By.XPATH, xpath)))
         return self.driver.find_elements_by_xpath(xpath)
 
 
