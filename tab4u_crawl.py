@@ -630,8 +630,8 @@ class Tab4uCrawler:
 
         except Exception as e:
             if not self.handle_crash(url, e):
-                logger.warning(f"Failed to find composer and author for song {song_name}, exception: {e}. Reloading")
-                self.my_driver.driver.get(url)
+                logger.warning(f"Failed to find composer and author for song {song_name}, exception: {e}")
+                # self.my_driver.driver.get(url)
 
         return author, composer
 
@@ -659,17 +659,9 @@ class Tab4uCrawler:
         self.my_driver.get_chrome_driver(consts.CHROME_DRIVER_PATH)
 
         try:
-            url = "https://www.tab4u.com/results?tab=artists&q=%D7%94"
-
+            url = input("Enter url\n")
             self.my_driver.driver.get(url)
-
             print(self.navigate_artists(url))
-
-            # url = "https://www.tab4u.com/tabs/artists/920_%D7%90%D7%92%D7%9D_%D7%91%D7%95%D7%97%D7%91%D7%95%D7%98.html"
-            #
-            # my_driver.driver.get(url)
-            #
-            # print(get_data_as_json_file_by_artist(url, "אייל גולן", 0, 5))
 
 
         finally:
