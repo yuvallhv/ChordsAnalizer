@@ -1,4 +1,6 @@
 .DS_Store
 *.json
 .idea/*
+json_files_edit
+processed_json_files_backup
 __pycache__/

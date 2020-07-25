@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
+from webdriver_manager.chrome import ChromeDriverManager
 
 import logging
 import time
@@ -20,7 +21,7 @@ def get_chrome_driver(path):
     chrome_options = Options()
     # chrome_options.add_argument("headless")
     chrome_options.add_argument("--window-size=1920x1080")
-    return webdriver.Chrome(options=chrome_options, executable_path=path)
+    return webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
 
 
 def navigate_between_songs(driver):

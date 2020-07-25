@@ -18,10 +18,9 @@ class DriverHelper:
         """ returns a chrome driver """
 
         chrome_options = Options()
-        chrome_options.add_argument("headless")
+        # chrome_options.add_argument("headless")
         # chrome_options.add_argument("--window-size=1920x1080")
         self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
-        # self.driver = webdriver.Chrome(options=chrome_options, executable_path=path)
 
 
     def find_element_by_xpath(self, xpath, wait=True):

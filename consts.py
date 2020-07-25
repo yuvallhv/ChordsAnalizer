@@ -14,6 +14,7 @@ TABS_CLASS = "tabs"
 # dictionary keys
 SONGS_DATA = "Songs data"
 ARTIST_DATA = "Artist data"
+URL = "URL"
 
 ARTIST_NAME = "Artist name"
 ARTIST_BIO = "Artist bio"
@@ -36,6 +37,7 @@ TABS_LINES = "Tabs lines"
 TYPE = "Type"
 DEFINITION_NAME = "Definition name"
 IS_TAB_PARA = "Is part of tab para"
+CHORDS_WEIGHT = "chords weight"
 
 TABS_LINE = "Tabs line"
 HAS_CHORDS = "Has chords"

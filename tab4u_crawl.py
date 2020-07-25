@@ -1,13 +1,10 @@
 import json
 import urllib
 import os
-
 import driver_helper
 import consts
 import logger
 import pdb
-
-
 
 
 class Tab4uCrawler:
@@ -15,6 +12,7 @@ class Tab4uCrawler:
     def __init__(self):
         self.my_driver = None
         self.crush_msg = "unknown error: session deleted because of page crash"
+        self.skipped_artists = []
 
 
     def handle_crash(self, url, e):
@@ -28,8 +26,107 @@ class Tab4uCrawler:
             return False
 
 
-    # ######################################################################################################################
-    # ########################################### pages navigation #########################################################
+    # ##################################################################################################################
+    # ########################################### pages navigation #####################################################
+
+
+    def navigate_all_pages_by_letters(self, url):
+        """ """
+
+        full_artists_lists_a_xpath = "//li[@class='more']/a"
+        full_artists_lists_xpath = "//li[@class='more']"
+
+        # check if there are multiple pages
+        try:
+            artists_by_letter_pages = self.my_driver.find_elements_by_xpath(full_artists_lists_a_xpath)
+
+            for idx, _ in enumerate(artists_by_letter_pages):
+
+                try:
+                    artist_a_xpath_by_idx = f"{self.my_driver.xpath_by_idx(full_artists_lists_xpath, idx)}/a"
+                    artist_a_element = self.my_driver.find_element_by_xpath(artist_a_xpath_by_idx)
+
+                    next_url = artist_a_element.get_attribute('href')
+                    logger.notice(f"Moving to a page of artists by letter, url is {urllib.parse.unquote(next_url)}")
+                    self.my_driver.try_click(url, artist_a_element)
+
+                    # self.navigate_artists(url)
+                    self.navigate_artists_to_add_urls(url)
+
+                    self.my_driver.driver.get(url)
+
+                except Exception as e:
+                    logger.warning(f"Could not loaf this index page: {idx}, Reloading")
+                    self.my_driver.driver.get(url)
+
+        except Exception as e:
+            logger.warning(f"Could not load this letter page: {url}, Reloading")
+            self.my_driver.driver.get(url)
+
+        logger.notice(f"\nSkipped artists list:")
+        for skipped_artist in self.skipped_artists:
+            logger.log(skipped_artist)
+
+
+    def navigate_artists_to_add_urls(self, url):
+        """ navigates artist pages, add to the json files the url for each artist """
+
+        self.navigate_pages(url, None, None, self.add_url_for_artist)
+
+
+    def add_url_for_artist(self, url):
+        """ add to the json files the url for each artist """
+
+        artists_a_xpath = "//a[@class='searchLink']"
+
+        try:
+            artists_a_element = self.my_driver.find_elements_by_xpath(artists_a_xpath)
+
+            for idx, _ in enumerate(artists_a_element):
+
+                artist_a_xpath_by_idx = self.my_driver.xpath_by_idx(artists_a_xpath, idx)
+                artist_a_element = self.my_driver.find_element_by_xpath(artist_a_xpath_by_idx)
+
+                artist_name = artist_a_element.text
+
+                # get the url for the artist's page
+                try:
+                    artist_url = artist_a_element.get_attribute('href')
+                    logger.log(f"Artist name {artist_name}, url is {urllib.parse.unquote(artist_url)}")
+
+                    # fix artist name to the new schema
+                    if "' " in artist_name:
+                        new_artist_name = artist_name.replace("' ", "_")
+                    elif "'" in artist_name:
+                        new_artist_name = artist_name.replace("'", "_")
+                    else:
+                        new_artist_name = artist_name
+
+                    artist_json_file_path = f"json_files/new{new_artist_name}.json"
+                    new_artist_json_file_path = f"json_files_edit/{artist_name}.json"
+
+                    # add to the json file - check if the artist exists - if not - skip
+                    if os.path.exists(artist_json_file_path):
+                        with open(artist_json_file_path) as original_json_file:
+                            original_json = json.load(original_json_file)
+                            original_json.update({consts.URL: urllib.parse.unquote(artist_url)})
+
+                        with open(new_artist_json_file_path, 'w', encoding='utf8') as outfile:
+                            json.dump(original_json, outfile, ensure_ascii=False)
+
+                    else:
+                        logger.warning(f"Skipped artist: {artist_name} because it does not exists")
+                        self.skipped_artists.append(artist_name)
+
+                except Exception as e:
+                    if not self.handle_crash(url, e):
+                        logger.warning(f"Failed to click on the artist {artist_name} page, exception: {e}. Reloading")
+                        self.my_driver.driver.get(url)
+
+        except Exception as e:
+            if not self.handle_crash(url, e):
+                logger.warning(f"Couldn't get artists for this url: {url}. Reloading")
+                self.my_driver.driver.get(url)
 
 
     def navigate_pages(self, url, data_lst, artist_name, single_page_func):
@@ -43,7 +140,17 @@ class Tab4uCrawler:
             return self.navigate_multiple_pages(url, data_lst, artist_name, single_page_func)
 
         except Exception as e:
-            return single_page_func(url) if data_lst is None else single_page_func(url, data_lst, artist_name)
+
+            next_page_nav_xpath = "//div[@class='pagination']"
+
+            # check if there are multiple pages
+            try:
+                self.my_driver.find_element_by_xpath(next_page_nav_xpath)
+                return self.navigate_multiple_pages(url, data_lst, artist_name, single_page_func)
+
+            except Exception as e:
+
+                return single_page_func(url) if data_lst is None else single_page_func(url, data_lst, artist_name)
 
 
     def navigate_multiple_pages(self, url, data_dict, artist_name, single_page_func):
@@ -56,7 +163,7 @@ class Tab4uCrawler:
         single_page_func(url) if data_dict is None else single_page_func(url, data_dict, artist_name)
 
         try:
-            # check for more pages for this artist
+            # check for more pages for this page
             next_prev_page_a_elements = self.my_driver.find_elements_by_xpath(next_page_a_xpath)
 
             for next_prev_page_a_element in next_prev_page_a_elements:
@@ -115,7 +222,7 @@ class Tab4uCrawler:
                     continue
 
                 artist_albums_cnt, artist_songs_cnt = self.get_artist_albums_songs_cnt(artist_name,
-                                                                                  artists_albums_songs_cnt_dict)
+                                                                                       artists_albums_songs_cnt_dict)
 
                 # go to the artist's page and create a json file for him
                 try:
@@ -204,8 +311,8 @@ class Tab4uCrawler:
                 return {}
 
 
-    # ######################################################################################################################
-    # ########################################### get artist data ##########################################################
+    # ##################################################################################################################
+    # ########################################### get artist data ######################################################
 
     def get_artist_albums_songs_cnt(self, artist_name, artists_albums_songs_cnt_dict):
         """ separates the albums and songs count dictionaty into 2 parameters """
@@ -277,7 +384,7 @@ class Tab4uCrawler:
                 json.dump(data_by_artist_dict, f, ensure_ascii=False, indent=4)
 
         except Exception as e:
-            if not self.handle_crash(url, e):
+            if not self.handle_crash(curr_url, e):
                 logger.warning(f"Failed to dump artist {artist_name} to json file, exception: {e}.")
 
 
@@ -312,8 +419,8 @@ class Tab4uCrawler:
                 return artist_bio_dict
 
 
-    # ######################################################################################################################
-    # ########################################### get song data ############################################################
+    # ##################################################################################################################
+    # ########################################### get song data ########################################################
 
 
     def get_song_data_init_page(self, url, artist_name, song_name):
@@ -659,9 +766,15 @@ class Tab4uCrawler:
         self.my_driver.get_chrome_driver(consts.CHROME_DRIVER_PATH)
 
         try:
-            url = input("Enter url\n")
-            self.my_driver.driver.get(url)
-            print(self.navigate_artists(url))
+
+            all_pages_url = "https://www.tab4u.com/tabs/"
+            self.my_driver.driver.get(all_pages_url)
+            self.navigate_all_pages_by_letters(all_pages_url)
+
+            # navigate each letter in separate
+            # url = input("Enter url\n")
+            # self.my_driver.driver.get(url)
+            # print(self.navigate_artists(url))
 
 
         finally:
