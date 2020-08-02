@@ -4,7 +4,6 @@ import os
 import driver_helper
 import consts
 import logger
-import pdb
 
 
 class Tab4uCrawler:

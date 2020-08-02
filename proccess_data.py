@@ -1,10 +1,7 @@
 import json
-from os import listdir
-from os.path import isfile, join
 from os import walk
-import pdb
-import logger
 
+import logger
 import consts
 
 
@@ -624,33 +621,6 @@ def add_to_chords_dicts(groups_chords_weight_dict, groups_chords_dict, key, chor
         groups_chords_dict[key].append(chord)
 
 
-
 # ############################# Main ##############################
-
 if __name__ == "__main__":
-    # get_chords_all_artists("/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/json_files_processed")
-    # logger.log(all_chords_set)
-    # logger.log(len(all_chords_set))
-
-    # delete_buggy_chords_from_single_artist(
-    #     "/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/json_files_processed/הפרויקט של רביבו.json")
-
-    # delete_buggy_chords_all_artist(
-    #     "/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/json_files_processed")
-
-    # find_chord("/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/json_files_processed", "Cm/[]/[]/Fm/[]/[]/Bb/[]/[]/Eb")
-
-    # get_data_all_artists(directory_path="/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/json_files_processed",
-    #                      data_file_path="/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/general_data.json")
-
-
-    # pdb.set_trace()
-    #
-    # find_famous_all_artists(directory_path="/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/json_files_processed")
-    #
-    # add_data_to_data_json("/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/general_data.json",
-    #                       consts.FAMOUS_ARTISTS, global_famous_artists)
-
-    update_general_data_to_chord_groups("/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/general_data.json",
-                                        "/Users/Yuval/Desktop/miniDigitalHumanities/virEnvProj/ChordsAnalizer/updated_general_data.json",
-                                        True)
+    update_general_data_to_chord_groups("./general_data.json", "./updated_general_data.json", True)
